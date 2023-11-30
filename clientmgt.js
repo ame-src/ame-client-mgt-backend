@@ -36,38 +36,37 @@ app.get('/addresses/:client_id', function (req, res) {
         return;
     }
 
-    try {
+    // connect to your database
+    sql.connect(config, function (err) {
+    
+            if (err) {
+                res.status(500).json({message: err.message});
+                return;
+            }
 
-        // connect to your database
-        sql.connect(config, function (err) {
-        
-                if (err) console.log(err);
-
-                // create Request object
-                var request = new sql.Request();
+            // create Request object
+            var request = new sql.Request();
+            
+            // query to the database and get the records
+            request.query(`select address_id, company_id, company_type, company_name, branch_type, Branch,
+            Member, Attention, address_1, address_2, address_3, 
+            City, State, Country, Zip, cast(case when notes is not null then notes else '' end as varchar(MAX)) as Notes, 
+            case when ol.seq_num is not null then ol.seq_num else 4 end as sort_key  
+            from rpm_client_address ca 
+            left outer join rpm_option_list ol on ol.application = 'AMECLIENTMGT' and ol.option_type = 'BRANCH_TYPE' and ol.option_value = ca.branch_type 
+            WHERE company_type = 'C' AND company_id = ${client_id} 
+            order by sort_key, address_1`, 
+                function (err, recordset) {
                 
-                // query to the database and get the records
-                request.query(`select address_id, company_id, company_type, company_name, branch_type, Branch,
-                Member, Attention, address_1, address_2, address_3, 
-                City, State, Country, Zip, cast(case when notes is not null then notes else '' end as varchar(MAX)) as Notes, 
-                case when ol.seq_num is not null then ol.seq_num else 4 end as sort_key  
-                from rpm_client_address ca 
-                left outer join rpm_option_list ol on ol.application = 'AMECLIENTMGT' and ol.option_type = 'BRANCH_TYPE' and ol.option_value = ca.branch_type 
-                WHERE company_type = 'C' AND company_id = ${client_id} 
-                order by sort_key, address_1`, 
-                    function (err, recordset) {
-                    
-                        if (err) console.log(err)
+                    if (err) {
+                        res.status(500).json({message: err.message});
+                        return;
+                    }
 
-                        // send records as a response
-                        res.send(recordset);
-                });
+                    // send records as a response
+                    res.send(recordset);
+            });
     });
-    }
-    catch(e){
-        res.status(500).json({ message: e.message})
-        return;
-    }
 });
 
 app.get('/locations/:client_id', function (req, res) {
