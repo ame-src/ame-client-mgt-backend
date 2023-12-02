@@ -53,7 +53,7 @@ function register_client_route(app, url, sql_builder){
                 
                 // query to the database and get the records
                 request.query(sql_builder(client_id), 
-                    function (err, recordset) {
+                    function (err, results) {
                     
                         if (err) {
                             res.status(500).json({message: err.message});
@@ -61,7 +61,7 @@ function register_client_route(app, url, sql_builder){
                         }
 
                         // send records as a response
-                        res.send(recordset);
+                        res.send(results.recordset);
                 });
             });
         }
