@@ -14,7 +14,7 @@ function register_route(app, url, params, sql_builder){
 
     app.get(
         `/${url}/:${Object.keys(params).join(",")}`,
-        function(req, res) {
+        async function(req, res) {
 
             var sql = require("mssql");
 
@@ -47,30 +47,19 @@ function register_route(app, url, params, sql_builder){
                 return;
             }
 
-            // connect to your database
-            sql.connect(config, function (err) {
-                
-                if (err) {
-                    res.status(500).json({message: err.message});
-                    return;
-                }
+            try {
 
-                // create Request object
-                var request = new sql.Request();
-                
-                // query to the database and get the records
-                request.query(sql_builder(req.params), 
-                    function (err, results) {
+                // connect to your database
+                await sql.connect(config);
                     
-                        if (err) {
-                            res.status(500).json({message: err.message});
-                            return;
-                        }
-
-                        // send records as a response
-                        res.send(results.recordset);
-                });
-            });
+                // query to the database and get the records
+                let rows = await sql.query(sql_builder(req.params)); 
+                // send records as a response
+                res.send(rows.recordset);
+            }
+            catch(err){
+                res.status(500).json({message: err.message});
+            }
         }
     );
 }
