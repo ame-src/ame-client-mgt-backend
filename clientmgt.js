@@ -1,11 +1,12 @@
 var express = require('express');
 var sql = require("mssql");
 var app = express();
+app.use(express.json());
 
 // config for your database
 var config = {
-    user: 'sa',
-    password: 'topdog',
+    user: 'ame-server',
+    password: 'cArrington1859{}',
     server: 'database.amemusic.com', 
     database: 'AmeMaster',
     trustServerCertificate: true
@@ -86,6 +87,24 @@ params =>
         left outer join rpm_option_list ol on ol.application = 'AMECLIENTMGT' and ol.option_type = 'BRANCH_TYPE' and ol.option_value = ca.branch_type 
         WHERE company_type = 'C' AND address_id = ${params.address_id} 
         order by sort_key, address_1`);
+
+function format_sql(v){
+    let t = typeof v;
+
+    if(t == "string"){
+        return `'${v.replace("'", "''")}'`;
+    }
+    else{
+        return `${v}`;
+    }
+}
+
+app.put("/address/:address_id", (req, res) =>{
+    let obj = req.body;
+    let sql = "update RPM_CLIENT_ADDRESS set " + Object.keys(obj).map((key) => `${key} = ${format_sql(obj[key])}`).join(", ") 
+        + ` where address_id = ${req.params["address_id"]}`;
+    res.send(sql);
+});
 
 register_route(app,
                 "locations",
