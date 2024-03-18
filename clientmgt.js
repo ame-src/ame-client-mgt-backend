@@ -1,4 +1,5 @@
 var express = require('express');
+var sql = require("mssql");
 var app = express();
 
 // config for your database
@@ -10,13 +11,13 @@ var config = {
     trustServerCertificate: true
 };
 
+const app_pool = new sql.ConnectionPool(config);
+
 function register_route(app, url, params, sql_builder){
 
     app.get(
         `/${url}/:${Object.keys(params).join(",")}`,
         async function(req, res) {
-
-            var sql = require("mssql");
 
             try{
 
@@ -47,13 +48,9 @@ function register_route(app, url, params, sql_builder){
                 return;
             }
 
-            try {
-
-                // connect to your database
-                await sql.connect(config);
-                    
+            try {            
                 // query to the database and get the records
-                let rows = await sql.query(sql_builder(req.params)); 
+                let rows = await app.locals.db.query(sql_builder(req.params)); 
                 // send records as a response
                 res.send(rows.recordset);
             }
@@ -112,6 +109,14 @@ register_route(app,
         FROM rpm_client_location l 
         INNER JOIN qry_location_billing_dates b ON l.location_id = b.location_id WHERE l.location_id = ${params.location_id}`);
 
-var server = app.listen(5000, function () {
-    console.log('Server is running..');
-});
+//connect the pool and start the web server when done
+app_pool.connect().then(function(pool) {
+    app.locals.db = pool;
+    const server = app.listen(5000, function () {
+      const host = server.address().address
+      const port = server.address().port
+      console.log('client-mgt backend listening at http://%s:%s', host, port)
+    })
+  }).catch(function(err) {
+    console.error('Error creating connection pool', err)
+  });
