@@ -1,6 +1,31 @@
 var express = require('express');
 var sql = require("mssql");
 
+const winston = require("winston");
+
+const logger = winston.createLogger({
+    // Log only if level is less than (meaning more severe) or equal to this
+    level: "info",
+    // Use timestamp and printf to create a standard log format
+    format: winston.format.combine(
+      winston.format.timestamp(),
+      winston.format.printf(
+        (info) => `${info.timestamp} ${info.level}: ${info.message}`
+      )
+    ),
+    // Log to the console and a file
+    transports: [
+      new winston.transports.Console(),
+      new winston.transports.File({ filename: "logs/ameclientmgt.log" }),
+    ],
+ });
+
+const util = require('util')   
+ 
+function log(...msg) {
+   logger.log("info", util.format(...msg))
+}
+
 const { get } = require('./pool-manager')
 
 var app = express();
@@ -100,7 +125,7 @@ function register_routes_put_del(app, path, table, where_builder){
             let where_clause = where_builder(req.params);
 
             let sql = `update ${table} set ${Object.keys(obj).map((key) => `${key} = ${format_sql(obj[key])}`).join(", ")} where ${where_clause}`; 
-
+            log("info", "EXECSQL:", sql);
             res.send(sql);
         }
         catch(err){
@@ -123,7 +148,7 @@ function register_routes_put_del(app, path, table, where_builder){
             let where_clause = where_builder(req.params);
 
             let sql = `delete ${table} where ${where_clause}`; 
-
+            log("info", "EXECSQL:", sql);
             res.send(sql);
         }
         catch(err){
@@ -148,7 +173,7 @@ function register_routes_post(app, path, table, seq_num){
             body[seq_num[0]] = await get_seq_num(seq_num[1]);
 
             let sql = `insert ${table} (${Object.keys(body).join(", ")}) values (${Object.keys(body).map((key) => `${format_sql(body[key])}`).join(", ")})`; 
-
+            log("info", "EXECSQL:", sql);
             res.send(sql);
         }
         catch(err){

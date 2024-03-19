@@ -3,5 +3,6 @@ node_modules/
 *.txt
 *.exe
 *.lnk
+*.log
 *~
 
