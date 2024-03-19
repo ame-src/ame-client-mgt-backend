@@ -7,6 +7,20 @@ var app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+async function get_seq_num(type) {
+
+    var application = "AMECLIENTMGT";
+    var sql = `SELECT seq_num FROM rpm_sequencing WHERE type = '${type}' and application = '${application}'`;
+    
+    const pool = await get("read-pool", config);  
+    // query to the database and get the records
+    let rows = await pool.request().query(sql); 
+
+    if(rows.recordset.length <= 0) throw new Error(`no seq num for: ${application}`);
+
+    return rows.recordset[0]["seq_num"];
+}
+
 class HttpError extends Error {
     constructor(code, message) {
       super(message); // (1)
@@ -123,14 +137,15 @@ function register_routes_put_del(app, path, table, where_builder){
     });      
 }
 
-function register_routes_post(app, path, table){
+function register_routes_post(app, path, table, seq_num){
 
-    app.post(path, (req, res) =>{
+    app.post(path, async (req, res) =>{
 
         try {
             let client_id = req.headers["client-id"]; 
             if(client_id == undefined) throw new HttpError(400, `client-id not defined`);      
             let body = req.body;
+            body[seq_num[0]] = await get_seq_num(seq_num[1]);
 
             let sql = `insert ${table} (${Object.keys(body).join(", ")}) values (${Object.keys(body).map((key) => `${format_sql(body[key])}`).join(", ")})`; 
 
@@ -176,7 +191,7 @@ params =>
 register_routes_put_del(app, "/address/:address_id", "RPM_CLIENT_ADDRESS", 
     (params) => `address_id = ${params.address_id}`);
 
-register_routes_post(app, "/address/", "RPM_CLIENT_ADDRESS");
+register_routes_post(app, "/address/", "RPM_CLIENT_ADDRESS", ["address_id", "ADDRESS"]);
 
 function format_sql(v){
     let t = typeof v;
