@@ -5,6 +5,7 @@ const { get } = require('./pool-manager')
 
 var app = express();
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 class HttpError extends Error {
     constructor(code, message) {
@@ -73,6 +74,79 @@ function register_route(app, url, params, sql_builder){
     );
 }
 
+function register_routes_put_del(app, path, table, where_builder){
+
+    app.put(path, (req, res) =>{
+
+        try {
+            let client_id = req.headers["client-id"]; 
+            if(client_id == undefined) throw new HttpError(400, `client-id not defined`);      
+            let obj = req.body;
+
+            let where_clause = where_builder(req.params);
+
+            let sql = `update ${table} set ${Object.keys(obj).map((key) => `${key} = ${format_sql(obj[key])}`).join(", ")} where ${where_clause}`; 
+
+            res.send(sql);
+        }
+        catch(err){
+            if(err instanceof HttpError){
+                res.status(err.code).json({message: err.message});
+            }
+            else {
+                res.status(500).json({message: err.message});    
+            }       
+        }
+    });      
+
+    app.delete(path, (req, res) =>{
+
+        try {
+            let client_id = req.headers["client-id"]; 
+            if(client_id == undefined) throw new HttpError(400, `client-id not defined`);      
+            let obj = req.body;
+
+            let where_clause = where_builder(req.params);
+
+            let sql = `delete ${table} where ${where_clause}`; 
+
+            res.send(sql);
+        }
+        catch(err){
+            if(err instanceof HttpError){
+                res.status(err.code).json({message: err.message});
+            }
+            else {
+                res.status(500).json({message: err.message});    
+            }       
+        }
+    });      
+}
+
+function register_routes_post(app, path, table){
+
+    app.post(path, (req, res) =>{
+
+        try {
+            let client_id = req.headers["client-id"]; 
+            if(client_id == undefined) throw new HttpError(400, `client-id not defined`);      
+            let body = req.body;
+
+            let sql = `insert ${table} (${Object.keys(body).join(", ")}) values (${Object.keys(body).map((key) => `${format_sql(body[key])}`).join(", ")})`; 
+
+            res.send(sql);
+        }
+        catch(err){
+            if(err instanceof HttpError){
+                res.status(err.code).json({message: err.message});
+            }
+            else {
+                res.status(500).json({message: err.message});    
+            }       
+        }
+    });    
+}
+
 register_route(app,
                 "addresses",
                 {"client_id":"Int"},
@@ -99,6 +173,11 @@ params =>
         WHERE company_type = 'C' AND address_id = ${params.address_id} 
         order by sort_key, address_1`);
 
+register_routes_put_del(app, "/address/:address_id", "RPM_CLIENT_ADDRESS", 
+    (params) => `address_id = ${params.address_id}`);
+
+register_routes_post(app, "/address/", "RPM_CLIENT_ADDRESS");
+
 function format_sql(v){
     let t = typeof v;
 
@@ -109,21 +188,6 @@ function format_sql(v){
         return `${v}`;
     }
 }
-
-app.put("/address/:client_id/:address_id", (req, res) =>{
-
-    try {
-        let client_id = req.headers["client-id"]; 
-        if(client_id == undefined) throw new HttpError(400, `client-id not defined`);      
-        let obj = req.body;
-        let sql = "update RPM_CLIENT_ADDRESS set " + Object.keys(obj).map((key) => `${key} = ${format_sql(obj[key])}`).join(", ") 
-            + " where " + Object.keys(req.params).map((key) => `${key} = ${format_sql(req.params[key])}`).join(" and ");
-        res.send(sql);
-    }
-    catch(err){
-        res.status(err.code).json({message: err.message});       
-    }
-});
 
 register_route(app,
                 "locations",
