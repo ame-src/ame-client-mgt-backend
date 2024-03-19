@@ -1,7 +1,17 @@
 var express = require('express');
 var sql = require("mssql");
+
+const { get } = require('./pool-manager')
+
 var app = express();
 app.use(express.json());
+
+class HttpError extends Error {
+    constructor(code, message) {
+      super(message); // (1)
+      this.code = code; // (2)
+    }
+}
 
 // config for your database
 var config = {
@@ -49,9 +59,10 @@ function register_route(app, url, params, sql_builder){
                 return;
             }
 
-            try {            
+            try {
+                const pool = await get("read-pool", config);  
                 // query to the database and get the records
-                let rows = await app.locals.db.query(sql_builder(req.params)); 
+                let rows = await pool.request().query(sql_builder(req.params)); 
                 // send records as a response
                 res.send(rows.recordset);
             }
@@ -99,11 +110,19 @@ function format_sql(v){
     }
 }
 
-app.put("/address/:address_id", (req, res) =>{
-    let obj = req.body;
-    let sql = "update RPM_CLIENT_ADDRESS set " + Object.keys(obj).map((key) => `${key} = ${format_sql(obj[key])}`).join(", ") 
-        + ` where address_id = ${req.params["address_id"]}`;
-    res.send(sql);
+app.put("/address/:client_id/:address_id", (req, res) =>{
+
+    try {
+        let client_id = req.headers["client-id"]; 
+        if(client_id == undefined) throw new HttpError(400, `client-id not defined`);      
+        let obj = req.body;
+        let sql = "update RPM_CLIENT_ADDRESS set " + Object.keys(obj).map((key) => `${key} = ${format_sql(obj[key])}`).join(", ") 
+            + " where " + Object.keys(req.params).map((key) => `${key} = ${format_sql(req.params[key])}`).join(" and ");
+        res.send(sql);
+    }
+    catch(err){
+        res.status(err.code).json({message: err.message});       
+    }
 });
 
 register_route(app,
@@ -128,14 +147,9 @@ register_route(app,
         FROM rpm_client_location l 
         INNER JOIN qry_location_billing_dates b ON l.location_id = b.location_id WHERE l.location_id = ${params.location_id}`);
 
-//connect the pool and start the web server when done
-app_pool.connect().then(function(pool) {
-    app.locals.db = pool;
-    const server = app.listen(5000, function () {
-      const host = server.address().address
-      const port = server.address().port
-      console.log('client-mgt backend listening at http://%s:%s', host, port)
-    })
-  }).catch(function(err) {
-    console.error('Error creating connection pool', err)
-  });
+const server = app.listen(5000, function () {
+    const host = server.address().address;
+    const port = server.address().port;
+    console.log('client-mgt backend listening at http://%s:%s', host, port);
+});
+
