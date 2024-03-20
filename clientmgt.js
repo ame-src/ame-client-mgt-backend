@@ -64,40 +64,11 @@ var config = {
 
 const app_pool = new sql.ConnectionPool(config);
 
-function register_route(app, url, params, sql_builder){
+function register_route(app, path, sql_builder){
 
     app.get(
-        `/${url}/:${Object.keys(params).join(",")}`,
-        async function(req, res) {
-
-            try{
-
-                if(Object.keys(params).length > 0){
-
-                    if(!req.params){
-                        throw new Error(`no parameters, please provide ${req.params[0]} at least`);
-                    }
-
-                    for(var param in params){
-
-                        if(req.params[param] == ""){
-                            throw new Error(`no ${param} parameter provided`);
-                        }
-
-                        if(params[param] == "Int"){
-                            var temp = parseInt(req.params[param]);
-                            if(isNaN(temp) || isNaN(parseFloat(temp))){
-                                throw new Error(`${param} id not a number`);
-                            }   
-                        }
-                    }
-                }
-            }
-            catch(e)
-            {
-                res.status(400).json({ message: e.message})
-                return;
-            }
+        path,
+        async (req, res) => {
 
             try {
                 const pool = await get("read-pool", config);  
@@ -188,8 +159,7 @@ function register_routes_post(app, path, table, seq_num){
 }
 
 register_route(app,
-                "addresses",
-                {"client_id":"Int"},
+                "/addresses/:client_id",
                 params => 
                     `select address_id, company_id, company_type, company_name, branch_type, Branch,
                         Member, Attention, address_1, address_2, address_3, 
@@ -201,8 +171,7 @@ register_route(app,
                         order by sort_key, address_1`);
 
 register_route(app,
-"address",
-{"address_id":"Int"},
+"/address/:address_id",
 params => 
     `select address_id, company_id, company_type, company_name, branch_type, Branch,
         Member, Attention, address_1, address_2, address_3, 
@@ -230,15 +199,13 @@ function format_sql(v){
 }
 
 register_route(app,
-                "locations",
-                {"client_id":"Int"},
+                "/locations/:client_id",
                 params => 
                     `select l.location_id, l.address_id
                     FROM rpm_client_location l WHERE l.client_id = ${params.client_id}`);
 
 register_route(app,
-    "location",
-    {"location_id":"Int"},
+    "/location/:location_id",
     params => 
         `select l.location_id, l.address_id, l.bill_to_address_id, l.ship_to_address_id, l.bill_to_policy, 
         l.ship_to_policy, l.monthly_service_fee, l.months_per_bill_period, l.bill_ahead_days,
