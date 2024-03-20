@@ -75,10 +75,10 @@ function register_route(app, path, sql_builder){
                 // query to the database and get the records
                 let rows = await pool.request().query(sql_builder(req.params)); 
                 // send records as a response
-                res.send(rows.recordset);
+                await res.send(rows.recordset);
             }
             catch(err){
-                res.status(500).json({message: err.message});
+                await res.status(500).json({message: err.message});
             }
         }
     );
@@ -92,7 +92,7 @@ app.post("/begin-trans/", async (req, res) => {
         let client_id = req.headers["client-id"]; 
         if(client_id == undefined) throw new HttpError(400, `client-id not defined`);     
 
-        const pool = await get("read-pool", config); 
+        const pool = await get(client-id, config); 
         const transaction = pool.transaction();
         transactions[client_id] = transaction;
         await transaction.begin();
@@ -132,12 +132,9 @@ app.post("/rollback-trans/", async (req, res) => {
     }
 });
 
-
-
-
 function register_routes_put_del(app, path, table, where_builder){
 
-    app.put(path, (req, res) =>{
+    app.put(path, async (req, res) =>{
 
         try {
             let client_id = req.headers["client-id"]; 
@@ -148,19 +145,21 @@ function register_routes_put_del(app, path, table, where_builder){
 
             let sql = `update ${table} set ${Object.keys(obj).map((key) => `${key} = ${format_sql(obj[key])}`).join(", ")} where ${where_clause}`; 
             log("info", "EXECSQL:", sql);
-            res.send(sql);
+            const pool = await get(client_id, config);
+            await pool.request().query(sql);
+            await res.send({message:"SUCCESS"});
         }
         catch(err){
             if(err instanceof HttpError){
-                res.status(err.code).json({message: err.message});
+                await res.status(err.code).json({message: err.message});
             }
             else {
-                res.status(500).json({message: err.message});    
+                await res.status(500).json({message: err.message});    
             }       
         }
     });      
 
-    app.delete(path, (req, res) =>{
+    app.delete(path, async (req, res) =>{
 
         try {
             let client_id = req.headers["client-id"]; 
@@ -171,14 +170,16 @@ function register_routes_put_del(app, path, table, where_builder){
 
             let sql = `delete ${table} where ${where_clause}`; 
             log("info", "EXECSQL:", sql);
-            res.send(sql);
+            const pool = await get(client_id, config);
+            await pool.request().query(sql);
+            await res.send({message:"SUCCESS"});
         }
         catch(err){
             if(err instanceof HttpError){
-                res.status(err.code).json({message: err.message});
+                await res.status(err.code).json({message: err.message});
             }
             else {
-                res.status(500).json({message: err.message});    
+                await res.status(500).json({message: err.message});    
             }       
         }
     });      
@@ -196,14 +197,16 @@ function register_routes_post(app, path, table, seq_num){
 
             let sql = `insert ${table} (${Object.keys(body).join(", ")}) values (${Object.keys(body).map((key) => `${format_sql(body[key])}`).join(", ")})`; 
             log("info", "EXECSQL:", sql);
-            res.send(sql);
+            const pool = await get(client_id, config);
+            await pool.request().query(sql);
+            await res.send({message:"SUCCESS"});
         }
         catch(err){
             if(err instanceof HttpError){
-                res.status(err.code).json({message: err.message});
+                await res.status(err.code).json({message: err.message});
             }
             else {
-                res.status(500).json({message: err.message});    
+                await res.status(500).json({message: err.message});    
             }       
         }
     });    
