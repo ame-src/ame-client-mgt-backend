@@ -35,13 +35,16 @@ app.use(express.urlencoded({ extended: true }));
 async function get_seq_num(type) {
 
     var application = "AMECLIENTMGT";
-    var sql = `SELECT seq_num FROM rpm_sequencing WHERE type = '${type}' and application = '${application}'`;
+    var sql = `SELECT s.seq_num FROM rpm_sequencing s WHERE s.type = '${type}' and s.application = '${application}'`;
     
     const pool = await get("read-pool", config);  
     // query to the database and get the records
     let rows = await pool.request().query(sql); 
 
     if(rows.recordset.length <= 0) throw new Error(`no seq num for: ${application}`);
+
+    sql = `UPDATE s set s.seq_num = s.seq_num + 1 FROM rpm_sequencing s WHERE s.type = '${type}' and s.application = '${application}'`;
+    await pool.request().query(sql); 
 
     return rows.recordset[0]["seq_num"];
 }
@@ -92,7 +95,7 @@ app.post("/begin-trans/", async (req, res) => {
         let client_id = req.headers["client-id"]; 
         if(client_id == undefined) throw new HttpError(400, `client-id not defined`);     
 
-        const pool = await get(client-id, config); 
+        const pool = await get(client_id, config); 
         const transaction = pool.transaction();
         transactions[client_id] = transaction;
         await transaction.begin();
@@ -199,7 +202,7 @@ function register_routes_post(app, path, table, seq_num){
             log("info", "EXECSQL:", sql);
             const pool = await get(client_id, config);
             await pool.request().query(sql);
-            await res.send({message:"SUCCESS"});
+            await res.send({message:"SUCCESS", seq_num:body[seq_num[0]]});
         }
         catch(err){
             if(err instanceof HttpError){
