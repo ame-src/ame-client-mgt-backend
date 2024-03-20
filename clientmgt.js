@@ -255,6 +255,9 @@ register_routes_put_del(app, "/address/:address_id", "RPM_CLIENT_ADDRESS",
 register_routes_post(app, "/address/", "RPM_CLIENT_ADDRESS", ["address_id", "ADDRESS"]);
 
 function format_sql(v){
+
+    if(v == null) return "null";
+
     let t = typeof v;
 
     if(t == "string"){
