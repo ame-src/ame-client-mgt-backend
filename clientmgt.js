@@ -84,6 +84,57 @@ function register_route(app, path, sql_builder){
     );
 }
 
+transactions = {}
+
+app.post("/begin-trans/", async (req, res) => {
+
+    try {
+        let client_id = req.headers["client-id"]; 
+        if(client_id == undefined) throw new HttpError(400, `client-id not defined`);     
+
+        const pool = await get("read-pool", config); 
+        const transaction = pool.transaction();
+        transactions[client_id] = transaction;
+        await transaction.begin();
+        res.send({message:"BEGUN"});
+    }
+    catch(err){
+        res.status(500).json({message: err.message});
+    }
+});
+
+app.post("/commit-trans/", async (req, res) => {
+
+    try {
+        let client_id = req.headers["client-id"]; 
+        if(client_id == undefined) throw new HttpError(400, `client-id not defined`);     
+ 
+        const transaction = transactions[client_id];
+        await transaction.commit();
+        res.send({message:"COMMITTED"});
+    }
+    catch(err){
+        res.status(500).json({message: err.message});
+    }
+});
+
+app.post("/rollback-trans/", async (req, res) => {
+    try {
+        let client_id = req.headers["client-id"]; 
+        if(client_id == undefined) throw new HttpError(400, `client-id not defined`);     
+ 
+        const transaction = transactions[client_id];
+        await transaction.rollback();
+        res.send({message:"ROLLED BACK"});
+    }
+    catch(err){
+        res.status(500).json({message: err.message});
+    }
+});
+
+
+
+
 function register_routes_put_del(app, path, table, where_builder){
 
     app.put(path, (req, res) =>{
