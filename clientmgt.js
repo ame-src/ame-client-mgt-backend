@@ -87,7 +87,7 @@ function register_route(app, path, sql_builder){
     );
 }
 
-transactions = {}
+var transactions = {}
 
 app.post("/begin-trans/", async (req, res) => {
 
@@ -95,11 +95,15 @@ app.post("/begin-trans/", async (req, res) => {
         let client_id = req.headers["client-id"]; 
         if(client_id == undefined) throw new HttpError(400, `client-id not defined`);     
 
-        const pool = await get(client_id, config); 
+        const pool = await get(client_id, config);
+
         const transaction = pool.transaction();
-        transactions[client_id] = transaction;
+        if(!(client_id in transactions)){
+            transactions[client_id] = [];
+        } 
+        transactions[client_id].push(transaction);
         await transaction.begin();
-        res.send({message:"BEGUN"});
+        res.send({message:"TRANS BEGIN"});
     }
     catch(err){
         res.status(500).json({message: err.message});
@@ -112,9 +116,12 @@ app.post("/commit-trans/", async (req, res) => {
         let client_id = req.headers["client-id"]; 
         if(client_id == undefined) throw new HttpError(400, `client-id not defined`);     
  
-        const transaction = transactions[client_id];
+        if(!(client_id in transactions)) throw new HttpError(400, `this client never engaged in a transaction`);
+        if(transactions[client_id].length <= 0) throw new HttpError(400, `no known transactions for this client`);
+
+        const transaction = transactions[client_id].pop();
         await transaction.commit();
-        res.send({message:"COMMITTED"});
+        res.send({message:"TRANS COMMIT"});
     }
     catch(err){
         res.status(500).json({message: err.message});
@@ -126,9 +133,12 @@ app.post("/rollback-trans/", async (req, res) => {
         let client_id = req.headers["client-id"]; 
         if(client_id == undefined) throw new HttpError(400, `client-id not defined`);     
  
-        const transaction = transactions[client_id];
+        if(!(client_id in transactions)) throw new HttpError(400, `this client never engaged in a transaction`);
+        if(transactions[client_id].length <= 0) throw new HttpError(400, `no known transactions for this client`);
+
+        const transaction = transactions[client_id].pop();
         await transaction.rollback();
-        res.send({message:"ROLLED BACK"});
+        res.send({message:"TRANS ROLLBACK"});
     }
     catch(err){
         res.status(500).json({message: err.message});
