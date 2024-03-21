@@ -32,6 +32,20 @@ var app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+function format_sql(v){
+
+    if(v == null) return "null";
+
+    let t = typeof v;
+
+    if(t == "string"){
+        return `'${v.replace("'", "''")}'`;
+    }
+    else{
+        return `${v}`;
+    }
+}
+
 async function get_seq_num(type) {
 
     var application = "AMECLIENTMGT";
@@ -67,7 +81,7 @@ var config = {
 
 const app_pool = new sql.ConnectionPool(config);
 
-function register_route(app, path, sql_builder){
+function register_route_get(app, path, sql_builder){
 
     app.get(
         path,
@@ -145,7 +159,7 @@ app.post("/rollback-trans/", async (req, res) => {
     }
 });
 
-function register_routes_put_del(app, path, table, where_builder){
+function register_route_put_del(app, path, table, where_builder){
 
     app.put(path, async (req, res) =>{
 
@@ -198,7 +212,7 @@ function register_routes_put_del(app, path, table, where_builder){
     });      
 }
 
-function register_routes_post(app, path, table, seq_num){
+function register_route_post(app, path, table, seq_num){
 
     app.post(path, async (req, res) =>{
 
@@ -225,7 +239,7 @@ function register_routes_post(app, path, table, seq_num){
     });    
 }
 
-register_route(app,
+register_route_get(app,
                 "/addresses/:client_id",
                 params => 
                     `select address_id, company_id, company_type, company_name, branch_type, Branch,
@@ -237,7 +251,7 @@ register_route(app,
                         WHERE company_type = 'C' AND company_id = ${params.client_id} 
                         order by sort_key, address_1`);
 
-register_route(app,
+register_route_get(app,
 "/address/:address_id",
 params => 
     `select address_id, company_id, company_type, company_name, branch_type, Branch,
@@ -249,32 +263,18 @@ params =>
         WHERE company_type = 'C' AND address_id = ${params.address_id} 
         order by sort_key, address_1`);
 
-register_routes_put_del(app, "/address/:address_id", "RPM_CLIENT_ADDRESS", 
+register_route_put_del(app, "/address/:address_id", "RPM_CLIENT_ADDRESS", 
     (params) => `address_id = ${params.address_id}`);
 
-register_routes_post(app, "/address/", "RPM_CLIENT_ADDRESS", ["address_id", "ADDRESS"]);
+register_route_post(app, "/address/", "RPM_CLIENT_ADDRESS", ["address_id", "ADDRESS"]);
 
-function format_sql(v){
-
-    if(v == null) return "null";
-
-    let t = typeof v;
-
-    if(t == "string"){
-        return `'${v.replace("'", "''")}'`;
-    }
-    else{
-        return `${v}`;
-    }
-}
-
-register_route(app,
+register_route_get(app,
                 "/locations/:client_id",
                 params => 
                     `select l.location_id, l.address_id
                     FROM rpm_client_location l WHERE l.client_id = ${params.client_id}`);
 
-register_route(app,
+register_route_get(app,
     "/location/:location_id",
     params => 
         `select l.location_id, l.address_id, l.bill_to_address_id, l.ship_to_address_id, l.bill_to_policy, 
@@ -288,9 +288,13 @@ register_route(app,
         FROM rpm_client_location l 
         INNER JOIN qry_location_billing_dates b ON l.location_id = b.location_id WHERE l.location_id = ${params.location_id}`);
 
+register_route_put_del(app, "/location/:location_id", "RPM_CLIENT_LOCATION", 
+        (params) => `location_id = ${params.location_id}`);
+
+register_route_post(app, "/location/", "RPM_CLIENT_LOCATION", ["location_id", "LOCATION"]);
+
 const server = app.listen(5000, function () {
     const host = server.address().address;
     const port = server.address().port;
     console.log('client-mgt backend listening at http://%s:%s', host, port);
 });
-
