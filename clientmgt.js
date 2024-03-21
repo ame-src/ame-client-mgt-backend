@@ -252,6 +252,18 @@ register_route_get(app,
                         order by sort_key, address_1`);
 
 register_route_get(app,
+    "/suppliers/",
+    params => 
+        `select cs.supplier_id, ca.address_id, ca.company_id, ca.company_type, ca.company_name, ca.branch_type, ca.Branch,
+            ca.Member, ca.Attention, ca.address_1, ca.address_2, ca.address_3, 
+            ca.City, ca.State, ca.Country, ca.Zip,  
+            case when ol.seq_num is not null then ol.seq_num else 4 end as sort_key  
+            from rpm_computer_supplier cs 
+            inner join rpm_client_address ca on ca.address_id = cs.address_id 
+            left outer join rpm_option_list ol on ol.application = 'AMECLIENTMGT' and ol.option_type = 'BRANCH_TYPE' and ol.option_value = ca.branch_type  
+            order by sort_key, address_1`);
+
+register_route_get(app,
 "/address/:address_id",
 params => 
     `select address_id, company_id, company_type, company_name, branch_type, Branch,
