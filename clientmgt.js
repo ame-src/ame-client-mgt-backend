@@ -39,7 +39,7 @@ function format_sql(v){
     let t = typeof v;
 
     if(t == "string"){
-        return `'${v.replace("'", "''")}'`;
+        return `'${v.replaceAll("'", "''")}'`;
     }
     else{
         return `${v}`;
