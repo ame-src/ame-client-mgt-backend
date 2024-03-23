@@ -95,6 +95,7 @@ function register_route_get(app, path, sql_builder){
                 await res.send(rows.recordset);
             }
             catch(err){
+                log("error", err.message);
                 await res.status(500).json({message: err.message});
             }
         }
@@ -177,6 +178,7 @@ function register_route_put_del(app, path, table, where_builder){
             await res.send({message:"SUCCESS"});
         }
         catch(err){
+            log("error", err.message);
             if(err instanceof HttpError){
                 await res.status(err.code).json({message: err.message});
             }
@@ -202,6 +204,7 @@ function register_route_put_del(app, path, table, where_builder){
             await res.send({message:"SUCCESS"});
         }
         catch(err){
+            log("error", err.message);
             if(err instanceof HttpError){
                 await res.status(err.code).json({message: err.message});
             }
@@ -229,6 +232,7 @@ function register_route_post(app, path, table, seq_num){
             await res.send({message:"SUCCESS", seq_num:body[seq_num[0]]});
         }
         catch(err){
+            log("error", err.message);
             if(err instanceof HttpError){
                 await res.status(err.code).json({message: err.message});
             }
