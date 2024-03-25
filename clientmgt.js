@@ -244,6 +244,32 @@ function register_route_post(app, path, table, seq_num){
 }
 
 register_route_get(app,
+    "/options/",
+    params => 
+        `select option_type, option_value, option_caption, is_default, seq_num from rpm_option_list where application = 'AMECLIENTMGT'  
+        UNION
+        select 'USER' option_type, user_id option_value, full_name option_caption, NULL is_default, NULL seq_num 
+        from rpm_user_list where AME_CLIENT_MGT = 'Y' 
+        UNION
+        SELECT 'COMPONENT_TYPE' option_type, option_value, option_caption, is_default, NULL seq_num 
+        FROM rpm_option_list WHERE application = 'AMEHARDWARE' AND option_type = 'COMPONENT_TYPE'
+        UNION
+        select distinct 'TEMPLATE_ZONES' option_type, 
+        cast(zones as varchar(50)) option_value, case when zones = 1 then 'Single Zone' else cast(zones as varchar(50)) + ' Zones' end option_caption, 
+        NULL is_default, zones as seq_num from RPM_SYSTEM_PROFILE_TEMPLATE 
+        order by option_type, seq_num, option_value`);
+
+register_route_get(app,
+    "/business-categories/",
+    params =>
+    `SELECT DISTINCT industry_id, bus_category_id, bus_category_desc, is_default FROM rpm_system_bus_category ORDER BY bus_category_desc ASC`)
+
+register_route_get(app,
+    "/time-zones/",
+    params =>
+    `SELECT zone_id, zone_desc, utc_bias, dst_bias FROM time_zone ORDER BY zone_id ASC`)
+
+register_route_get(app,
                 "/addresses/:client_id",
                 params => 
                     `select address_id, company_id, company_type, company_name, branch_type, Branch,
