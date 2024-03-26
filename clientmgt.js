@@ -343,6 +343,15 @@ register_route_get(app,
         inner join RPM_CLIENT_LOCATION l on ch.location_id2 = l.location_id
         where l.location_id = ${params.location_id} and (i.is_void = 'Y' or i.is_void is null)`);
 
+register_route_get(app,
+    "/profiles/:client_id",
+    (params) => `SELECT cp.profile_id, cp.client_id, cp.profile_name, cp.is_interactive, cp.is_shared, cp.video_caps, cp.zones,
+        cp.min_4k_unit_storage, cp.template_id, pz.recording_type, cp.db_version_num
+        FROM rpm_client_profile cp with (nolock) INNER JOIN ame_profile_zone pz with (nolock) ON cp.profile_id = pz.profile_id
+        WHERE pz.zone_id = 1 AND cp.client_id = ${params.client_id} ORDER BY cp.profile_id desc`);
+
+
+        
 const server = app.listen(5000, function () {
     const host = server.address().address;
     const port = server.address().port;
