@@ -346,8 +346,9 @@ register_route_get(app,
 register_route_get(app,
     "/profiles/:client_id",
     (params) => `SELECT cp.profile_id, cp.client_id, cp.profile_name, cp.is_interactive, cp.is_shared, cp.video_caps, cp.zones,
-        cp.min_4k_unit_storage, cp.template_id, pz.recording_type, cp.db_version_num
-        FROM rpm_client_profile cp with (nolock) INNER JOIN ame_profile_zone pz with (nolock) ON cp.profile_id = pz.profile_id
+        cp.min_4k_unit_storage, cp.template_id, pz.recording_type, cp.db_version_num,
+        (select count(*) from RPM_CLIENT_SYSTEM cs where cs.profile_id = cp.profile_id) as num_systems
+        FROM RPM_CLIENT_PROFILE cp with (nolock) INNER JOIN ame_profile_zone pz with (nolock) ON cp.profile_id = pz.profile_id
         WHERE pz.zone_id = 1 AND cp.client_id = ${params.client_id} ORDER BY cp.profile_id desc`);
 
 
