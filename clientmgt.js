@@ -335,6 +335,14 @@ register_route_put_del(app, "/location/:location_id", "RPM_CLIENT_LOCATION",
 
 register_route_post(app, "/location/", "RPM_CLIENT_LOCATION", ["location_id", "LOCATION"]);
 
+register_route_get(app,
+    "/invoices/location2/:location_id",
+    (params) => 
+        `SELECT distinct ch.invoice_id FROM  RPM_CLIENT_CHARGE ch 
+        inner join RPM_CLIENT_INVOICE i on ch.invoice_id = i.invoice_id
+        inner join RPM_CLIENT_LOCATION l on ch.location_id2 = l.location_id
+        where l.location_id = ${params.location_id} and (i.is_void = 'Y' or i.is_void is null)`);
+
 const server = app.listen(5000, function () {
     const host = server.address().address;
     const port = server.address().port;
