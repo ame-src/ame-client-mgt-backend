@@ -294,6 +294,11 @@ register_route_get(app,
             order by sort_key, address_1`);
 
 register_route_get(app,
+    "/sales-tax/",
+    params =>
+    `SELECT state, item_type, sales_tax_rate from RPM_SALES_TAX`);
+
+register_route_get(app,
 "/address/:address_id",
 params => 
     `select address_id, company_id, company_type, company_name, branch_type, Branch,
