@@ -356,8 +356,41 @@ register_route_get(app,
         FROM RPM_CLIENT_PROFILE cp with (nolock) INNER JOIN ame_profile_zone pz with (nolock) ON cp.profile_id = pz.profile_id
         WHERE pz.zone_id = 1 AND cp.client_id = ${params.client_id} ORDER BY cp.profile_id desc`);
 
+register_route_post(app, "/profile/", "RPM_CLIENT_PROFILE", ["profile_id", "PROFILE"]);
 
-        
+register_route_put_del(app, "/profile/:profile_id", "RPM_CLIENT_PROFILE", 
+        (params) => `profile_id = ${params.profile_id}`); 
+
+app.post("/profile-duplicate/", async (req, res) =>{
+
+    try {
+        let client_id = req.headers["client-id"]; 
+        if(client_id == undefined) throw new HttpError(400, `client-id not defined`);      
+        let body = req.body;
+        const pool = await get(client_id, config);
+ 
+        let dest_profile_id = body["dest_profile_id"]; 
+        let sql = `exec sp_duplicateprofile_data ${body["src_profile_id"]}, ${body["client_id"]}, ${dest_profile_id}`;
+        log("info", "EXECSQL:", sql);
+        await pool.request().query(sql);
+
+        sql = `exec sp_insert_install_disc ${dest_profile_id}`;
+        log("info", "EXECSQL:", sql);
+        await pool.request().query(sql);
+
+        await res.send({message:"SUCCESS", seq_num:body["profile_id"]});
+    }
+    catch(err){
+        log("error", err.message);
+        if(err instanceof HttpError){
+            await res.status(err.code).json({message: err.message});
+        }
+        else {
+            await res.status(500).json({message: err.message});    
+        }       
+    }
+});    
+
 const server = app.listen(5000, function () {
     const host = server.address().address;
     const port = server.address().port;
