@@ -361,7 +361,7 @@ register_route_post(app, "/profile/", "RPM_CLIENT_PROFILE", ["profile_id", "PROF
 register_route_put_del(app, "/profile/:profile_id", "RPM_CLIENT_PROFILE", 
         (params) => `profile_id = ${params.profile_id}`); 
 
-app.post("/profile-duplicate/", async (req, res) =>{
+app.post("/profile-duplicate-data/", async (req, res) =>{
 
     try {
         let client_id = req.headers["client-id"]; 
@@ -379,6 +379,31 @@ app.post("/profile-duplicate/", async (req, res) =>{
         await pool.request().query(sql);
 
         await res.send({message:"SUCCESS", seq_num:body["profile_id"]});
+    }
+    catch(err){
+        log("error", err.message);
+        if(err instanceof HttpError){
+            await res.status(err.code).json({message: err.message});
+        }
+        else {
+            await res.status(500).json({message: err.message});    
+        }       
+    }
+});    
+
+app.delete("/profile-delete-data/:profile_id", async (req, res) =>{
+
+    try {
+        let client_id = req.headers["client-id"]; 
+        if(client_id == undefined) throw new HttpError(400, `client-id not defined`);      
+         const pool = await get(client_id, config);
+ 
+        let profile_id = req.params["profile_id"]; 
+        let sql = `exec sp_deleteprofile ${profile_id}`;
+        log("info", "EXECSQL:", sql);
+        await pool.request().query(sql);
+
+        await res.send({message:"SUCCESS"});
     }
     catch(err){
         log("error", err.message);
