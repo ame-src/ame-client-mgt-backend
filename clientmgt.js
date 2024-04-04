@@ -317,6 +317,13 @@ register_route_put_del(app, "/address/:address_id", "RPM_CLIENT_ADDRESS",
 register_route_post(app, "/address/", "RPM_CLIENT_ADDRESS", ["address_id", "ADDRESS"]);
 
 register_route_get(app,
+    "/contacts/:address_id",
+    (params) =>
+        `select contact_id, contact_name, description, phone_number, phone_extension, fax_number, other_phone_type, other_phone_number, 
+            other_phone_extension, email_address, is_purchasing, is_obsolete, modified_by, modified_dts, do_not_mail,
+             assigned_to, status_id, status_date from RPM_CLIENT_CONTACT where address_id = ${params.address_id}`);
+
+register_route_get(app,
                 "/locations/:client_id",
                 params => 
                     `select l.location_id, l.address_id
