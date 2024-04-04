@@ -515,6 +515,15 @@ app.get("/disks/labelled_gb/:4k_units", async (req, res) =>{
     }
 });  
 
+register_route_get(app, "/templates", 
+    (params) =>
+    `SELECT spt.template_id, spt.template_name, spt.description, spt.zones, 
+	    spt.min_4k_unit_storage, spt.can_edit,  pz.recording_type, db_version_num 
+    FROM rpm_system_profile_template spt 
+    INNER JOIN wrk_profile_zone pz ON spt.template_id = pz.profile_id 
+    WHERE pz.zone_id = 1`
+);
+
 const server = app.listen(5000, function () {
     const host = server.address().address;
     const port = server.address().port;
