@@ -416,6 +416,63 @@ app.delete("/profile-delete-data/:profile_id", async (req, res) =>{
     }
 });    
 
+register_route_get(app,
+    "/profile/max_labelled_gb/:profile_id",
+    (params) => `select max(labelled_gb_capacity) as max_labelled_gb  from rpm_disk_configs
+    where available_gb_capacity <= (
+        SELECT min(case when c.COMPUTER_NAME is null then 102 else c.disk_4k_unit_count / 262144 end) gb_count 
+        FROM rpm_client_system cs with (nolock) 
+        LEFT OUTER JOIN rpm_computer c with (nolock) ON cs.computer_name = c.computer_name 
+        WHERE cs.profile_id = ${params.profile_id})`);
+
+ht_labelled_gb = {}
+
+app.get("/disks/labelled_gb/:4k_units", async (req, res) =>{
+
+    try {
+
+        let four_k_units = req.params["4k_units"]; 
+        let gb_units = Math.floor(four_k_units / 262144);
+        var ret;
+        if(gb_units in ht_labelled_gb){
+            ret = ht_labelled_gb[gb_units];
+        }
+        else {
+
+            const pool = await get("read-pool", config);
+
+            let sql = `select top 1 ${gb_units} + labelled_gb_capacity - available_gb_capacity  as labelled_gb from rpm_disk_configs 
+                where file_system = 'NTFS' and ${gb_units} <= available_gb_capacity order by labelled_gb_capacity`;
+            log("info", "EXECSQL:", sql);
+            let rows = await pool.request().query(sql); 
+            // send records as a response
+            if(rows.recordset.length > 0){
+                ret =  rows.recordset[0]["labelled_gb"];
+                ht_labelled_gb[gb_units] = ret;
+            }
+            else {
+                ret = null
+            }
+        }
+
+        if(ret != null){
+            res.send([{"labelled_gb":ret}]);
+        }
+        else {
+            res.send([]);
+        }        
+    }
+    catch(err){
+        log("error", err.message);
+        if(err instanceof HttpError){
+            await res.status(err.code).json({message: err.message});
+        }
+        else {
+            await res.status(500).json({message: err.message});    
+        }       
+    }
+});  
+
 const server = app.listen(5000, function () {
     const host = server.address().address;
     const port = server.address().port;
