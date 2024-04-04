@@ -168,13 +168,14 @@ function register_route_put_del(app, path, table, where_builder){
             let client_id = req.headers["client-id"]; 
             if(client_id == undefined) throw new HttpError(400, `client-id not defined`);      
             let obj = req.body;
+            if(Object.keys(obj).length > 0) {
+                let where_clause = where_builder(req.params);
 
-            let where_clause = where_builder(req.params);
-
-            let sql = `update ${table} set ${Object.keys(obj).map((key) => `${key} = ${format_sql(obj[key])}`).join(", ")} where ${where_clause}`; 
-            log("info", "EXECSQL:", sql);
-            const pool = await get(client_id, config);
-            await pool.request().query(sql);
+                let sql = `update ${table} set ${Object.keys(obj).map((key) => `${key} = ${format_sql(obj[key])}`).join(", ")} where ${where_clause}`; 
+                log("info", "EXECSQL:", sql);
+                const pool = await get(client_id, config);
+                await pool.request().query(sql);
+            }
             await res.send({message:"SUCCESS"});
         }
         catch(err){
