@@ -416,11 +416,73 @@ app.delete("/profile-delete-data/:profile_id", async (req, res) =>{
     }
 });    
 
+async function get_labelled_disc_capacity(four_k_units)
+{
+    let gb_units = Math.floor(four_k_units / 262144);
+    var ret;
+    if(gb_units in ht_labelled_gb){
+        ret = ht_labelled_gb[gb_units];
+    }
+    else {
+
+        const pool = await get("read-pool", config);
+
+        let sql = `select top 1 ${gb_units} + labelled_gb_capacity - available_gb_capacity  as labelled_gb from rpm_disk_configs 
+            where file_system = 'NTFS' and ${gb_units} <= available_gb_capacity order by labelled_gb_capacity`;
+
+        let rows = await pool.request().query(sql); 
+        // send records as a response
+        if(rows.recordset.length > 0){
+            ret =  rows.recordset[0]["labelled_gb"];
+            ht_labelled_gb[gb_units] = ret;
+        }
+        else {
+            ret = null
+        }
+    }
+
+    return ret;
+}
+
+app.get("/profile/min_labelled_gb/:profile_id", async (req, res) =>{
+
+    try {
+ 
+        const pool = await get("read-pool", config);
+
+        let sql = `SELECT sum(f.file_4k_unit_count) min_profile_units 
+            FROM wrk_profile_music_installed i 
+            INNER JOIN ame_music_file f ON i.file_id = f.file_id 
+            WHERE i.file_status NOT IN ('DELETED','PURGE') AND i.profile_id = ${req.params["profile_id"]}`;
+
+        let rows = await pool.request().query(sql); 
+        // send records as a response
+        let four_k_units = rows.recordset.length > 0 ? rows.recordset[0]["min_profile_units"]: 100000000;
+        let ret = await get_labelled_disc_capacity(four_k_units);
+
+        if(ret != null){
+            res.send([{"labelled_gb":ret}]);
+        }
+        else {
+            res.send([]);
+        }        
+    }
+    catch(err){
+        log("error", err.message);
+        if(err instanceof HttpError){
+            await res.status(err.code).json({message: err.message});
+        }
+        else {
+            await res.status(500).json({message: err.message});    
+        }       
+    }
+});
+
 register_route_get(app,
     "/profile/max_labelled_gb/:profile_id",
     (params) => `select max(labelled_gb_capacity) as max_labelled_gb  from rpm_disk_configs
     where available_gb_capacity <= (
-        SELECT min(case when c.COMPUTER_NAME is null then 102 else c.disk_4k_unit_count / 262144 end) gb_count 
+        SELECT isnull(min(case when c.COMPUTER_NAME is null then 100000 else c.disk_4k_unit_count / 262144 end), 100000) gb_count 
         FROM rpm_client_system cs with (nolock) 
         LEFT OUTER JOIN rpm_computer c with (nolock) ON cs.computer_name = c.computer_name 
         WHERE cs.profile_id = ${params.profile_id})`);
@@ -432,28 +494,7 @@ app.get("/disks/labelled_gb/:4k_units", async (req, res) =>{
     try {
 
         let four_k_units = req.params["4k_units"]; 
-        let gb_units = Math.floor(four_k_units / 262144);
-        var ret;
-        if(gb_units in ht_labelled_gb){
-            ret = ht_labelled_gb[gb_units];
-        }
-        else {
-
-            const pool = await get("read-pool", config);
-
-            let sql = `select top 1 ${gb_units} + labelled_gb_capacity - available_gb_capacity  as labelled_gb from rpm_disk_configs 
-                where file_system = 'NTFS' and ${gb_units} <= available_gb_capacity order by labelled_gb_capacity`;
-            log("info", "EXECSQL:", sql);
-            let rows = await pool.request().query(sql); 
-            // send records as a response
-            if(rows.recordset.length > 0){
-                ret =  rows.recordset[0]["labelled_gb"];
-                ht_labelled_gb[gb_units] = ret;
-            }
-            else {
-                ret = null
-            }
-        }
+        let ret = await get_labelled_disc_capacity(four_k_units);
 
         if(ret != null){
             res.send([{"labelled_gb":ret}]);
