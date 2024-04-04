@@ -46,12 +46,12 @@ function format_sql(v){
     }
 }
 
-async function get_seq_num(type) {
+async function get_seq_num(client_id, type) {
 
     var application = "AMECLIENTMGT";
     var sql = `SELECT s.seq_num FROM rpm_sequencing s WHERE s.type = '${type}' and s.application = '${application}'`;
     
-    const pool = await get("read-pool", config);  
+    const pool = await get(client_id, config);  
     // query to the database and get the records
     let rows = await pool.request().query(sql); 
 
@@ -224,7 +224,7 @@ function register_route_post(app, path, table, seq_num){
             let client_id = req.headers["client-id"]; 
             if(client_id == undefined) throw new HttpError(400, `client-id not defined`);      
             let body = req.body;
-            body[seq_num[0]] = await get_seq_num(seq_num[1]);
+            body[seq_num[0]] = await get_seq_num(client_id, seq_num[1]);
 
             let sql = `insert ${table} (${Object.keys(body).join(", ")}) values (${Object.keys(body).map((key) => `${format_sql(body[key])}`).join(", ")})`; 
             log("info", "EXECSQL:", sql);
@@ -375,9 +375,11 @@ app.post("/profile-duplicate-data/", async (req, res) =>{
         log("info", "EXECSQL:", sql);
         await pool.request().query(sql);
 
-        sql = `exec sp_insert_install_disc ${dest_profile_id}`;
-        log("info", "EXECSQL:", sql);
-        await pool.request().query(sql);
+        if(!("is_template" in body)){
+            sql = `exec sp_insert_install_disc ${dest_profile_id}`;
+            log("info", "EXECSQL:", sql);
+            await pool.request().query(sql);
+        }
 
         await res.send({message:"SUCCESS", seq_num:body["profile_id"]});
     }
@@ -523,6 +525,11 @@ register_route_get(app, "/templates",
     INNER JOIN wrk_profile_zone pz ON spt.template_id = pz.profile_id 
     WHERE pz.zone_id = 1`
 );
+
+register_route_post(app, "/template/", "RPM_SYSTEM_PROFILE_TEMPLATE", ["template_id", "TEMPLATE"]);
+
+register_route_put_del(app, "/template/:template_id", "RPM_SYSTEM_PROFILE_TEMPLATE", 
+        (params) => `template_id = ${params.template_id}`); 
 
 const server = app.listen(5000, function () {
     const host = server.address().address;
