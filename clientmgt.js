@@ -324,6 +324,18 @@ register_route_get(app,
              assigned_to, status_id, status_date from RPM_CLIENT_CONTACT where address_id = ${params.address_id}`);
 
 register_route_get(app,
+    "/contact/:contact_id",
+    (params) =>
+        `select contact_id, contact_name, description, phone_number, phone_extension, fax_number, other_phone_type, other_phone_number, 
+            other_phone_extension, email_address, is_purchasing, is_obsolete, modified_by, modified_dts, do_not_mail,
+            assigned_to, status_id, status_date from RPM_CLIENT_CONTACT where contact_id = ${params.contact_id}`);
+
+register_route_put_del(app, "/contact/:contact_id", "RPM_CLIENT_CONTACT", 
+    (params) => `contact_id = ${params.contact_id}`);
+        
+register_route_post(app, "/contact/", "RPM_CLIENT_CONTACT", ["contact_id", "CONTACT"]);
+
+register_route_get(app,
                 "/locations/:client_id",
                 params => 
                     `select l.location_id, l.address_id
