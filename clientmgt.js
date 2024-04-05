@@ -221,16 +221,24 @@ function register_route_post(app, path, table, seq_num){
     app.post(path, async (req, res) =>{
 
         try {
+            var ret;
+ 
             let client_id = req.headers["client-id"]; 
             if(client_id == undefined) throw new HttpError(400, `client-id not defined`);      
             let body = req.body;
-            body[seq_num[0]] = await get_seq_num(client_id, seq_num[1]);
+            if(seq_num.length > 1){
+                ret = await get_seq_num(client_id, seq_num[1]);
+                body[seq_num[0]] = ret;
+            }
+            else {
+                ret = null;
+            }
 
             let sql = `insert ${table} (${Object.keys(body).join(", ")}) values (${Object.keys(body).map((key) => `${format_sql(body[key])}`).join(", ")})`; 
             log("info", "EXECSQL:", sql);
             const pool = await get(client_id, config);
             await pool.request().query(sql);
-            await res.send({message:"SUCCESS", seq_num:body[seq_num[0]]});
+            await res.send({message:"SUCCESS", seq_num:ret});
         }
         catch(err){
             log("error", err.message);
@@ -343,8 +351,20 @@ register_route_get(app,
 
 register_route_put_del(app, "/task/:task_id", "RPM_CLIENT_TASK", 
     (params) => `task_id = ${params.task_id}`);
-            
+
 register_route_post(app, "/task/", "RPM_CLIENT_TASK", ["task_id", "TASK"]);
+
+register_route_get(app,
+    "/subsidiaries/:client_id",
+    (params) => `SELECT c.client_id, sub_client_id, ca.company_name FROM rpm_client_subsidiary sub 
+        inner join rpm_client c on sub.sub_client_id = c.client_id
+        inner join rpm_client_address ca on c.address_id = ca.address_id 
+        WHERE sub.client_id = ${params.client_id}`);
+
+register_route_put_del(app, "/subsidiary/:client_id/:sub_client_id", "RPM_CLIENT_SUBSIDIARY", 
+    (params) => `client_id = ${params.client_id} and sub_client_id = ${params.sub_client_id}`);
+
+register_route_post(app, "/subsidiary/", "RPM_CLIENT_SUBSIDIARY", []);
 
 register_route_get(app,
                 "/locations/:client_id",
