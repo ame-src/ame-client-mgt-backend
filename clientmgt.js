@@ -336,6 +336,17 @@ register_route_put_del(app, "/contact/:contact_id", "RPM_CLIENT_CONTACT",
 register_route_post(app, "/contact/", "RPM_CLIENT_CONTACT", ["contact_id", "CONTACT"]);
 
 register_route_get(app,
+    "/tasks/:client_id",
+    (params) =>
+        `select task_id, client_id,  created_by, responsible_for, task_description,
+        task_due_date, is_task_completed from RPM_CLIENT_TASK where client_id = ${params.client_id} ORDER BY task_due_date ASC`);
+
+register_route_put_del(app, "/task/:task_id", "RPM_CLIENT_TASK", 
+    (params) => `task_id = ${params.task_id}`);
+            
+register_route_post(app, "/task/", "RPM_CLIENT_TASK", ["task_id", "TASK"]);
+
+register_route_get(app,
                 "/locations/:client_id",
                 params => 
                     `select l.location_id, l.address_id
