@@ -1,5 +1,5 @@
-var express = require('express');
-var sql = require("mssql");
+const express = require('express');
+const mssql = require("mssql");
 
 const winston = require("winston");
 
@@ -79,7 +79,7 @@ var config = {
     trustServerCertificate: true
 };
 
-const app_pool = new sql.ConnectionPool(config);
+const app_pool = new mssql.ConnectionPool(config);
 
 function register_route_get(app, path, sql_builder){
 
@@ -112,7 +112,7 @@ app.post("/begin-trans/", async (req, res) => {
 
         const pool = await get(client_id, config);
 
-        const transaction = pool.transaction();
+        const transaction = new mssql.Transaction(pool);
         if(!(client_id in transactions)){
             transactions[client_id] = [];
         } 
@@ -125,16 +125,22 @@ app.post("/begin-trans/", async (req, res) => {
     }
 });
 
+function get_transaction(client_id, pop = false)
+{
+    if(!(client_id in transactions)) throw new HttpError(400, `this client never engaged in a transaction`);
+    let client_trans = transactions[client_id];
+    if(client_trans.length <= 0) throw new HttpError(400, `no known transactions for this client`);
+
+    return pop ? client_trans.pop() :client_trans[client_trans.length - 1];
+}
+
 app.post("/commit-trans/", async (req, res) => {
 
     try {
         let client_id = req.headers["client-id"]; 
         if(client_id == undefined) throw new HttpError(400, `client-id not defined`);     
  
-        if(!(client_id in transactions)) throw new HttpError(400, `this client never engaged in a transaction`);
-        if(transactions[client_id].length <= 0) throw new HttpError(400, `no known transactions for this client`);
-
-        const transaction = transactions[client_id].pop();
+        const transaction = get_transaction(client_id, true);
         await transaction.commit();
         res.send({message:"TRANS COMMIT"});
     }
@@ -148,10 +154,7 @@ app.post("/rollback-trans/", async (req, res) => {
         let client_id = req.headers["client-id"]; 
         if(client_id == undefined) throw new HttpError(400, `client-id not defined`);     
  
-        if(!(client_id in transactions)) throw new HttpError(400, `this client never engaged in a transaction`);
-        if(transactions[client_id].length <= 0) throw new HttpError(400, `no known transactions for this client`);
-
-        const transaction = transactions[client_id].pop();
+        const transaction = get_transaction(client_id, true);
         await transaction.rollback();
         res.send({message:"TRANS ROLLBACK"});
     }
@@ -171,10 +174,10 @@ function register_route_put_del(app, path, table, where_builder){
             if(Object.keys(obj).length > 0) {
                 let where_clause = where_builder(req.params);
 
+                let request = new mssql.Request(get_transaction(client_id));                
                 let sql = `update ${table} set ${Object.keys(obj).map((key) => `${key} = ${format_sql(obj[key])}`).join(", ")} where ${where_clause}`; 
                 log("info", "EXECSQL:", sql);
-                const pool = await get(client_id, config);
-                await pool.request().query(sql);
+                await request.query(sql);
             }
             await res.send({message:"SUCCESS"});
         }
@@ -197,11 +200,10 @@ function register_route_put_del(app, path, table, where_builder){
             let obj = req.body;
 
             let where_clause = where_builder(req.params);
-
+            let request = new mssql.Request(get_transaction(client_id));
             let sql = `delete ${table} where ${where_clause}`; 
             log("info", "EXECSQL:", sql);
-            const pool = await get(client_id, config);
-            await pool.request().query(sql);
+            await request.query(sql);
             await res.send({message:"SUCCESS"});
         }
         catch(err){
@@ -234,10 +236,10 @@ function register_route_post(app, path, table, seq_num){
                 ret = null;
             }
 
+            let request = new mssql.Request(get_transaction(client_id));
             let sql = `insert ${table} (${Object.keys(body).join(", ")}) values (${Object.keys(body).map((key) => `${format_sql(body[key])}`).join(", ")})`; 
             log("info", "EXECSQL:", sql);
-            const pool = await get(client_id, config);
-            await pool.request().query(sql);
+            await request.query(sql);
             await res.send({message:"SUCCESS", seq_num:ret});
         }
         catch(err){
@@ -365,6 +367,27 @@ register_route_put_del(app, "/subsidiary/:client_id/:sub_client_id", "RPM_CLIENT
     (params) => `client_id = ${params.client_id} and sub_client_id = ${params.sub_client_id}`);
 
 register_route_post(app, "/subsidiary/", "RPM_CLIENT_SUBSIDIARY", []);
+
+register_route_get(app,
+    "/charge-templates/:client_id",
+    (params) => `SELECT client_id, charge_template_id, description, min_units, is_default FROM RPM_CHARGE_TEMPLATE WHERE client_id = ${params.client_id}`
+    );
+
+register_route_put_del(app, "/charge-template/:charge_template_id", "RPM_CHARGE_TEMPLATE", 
+    (params) => `charge_template_id = ${params.charge_template_id}`);
+
+register_route_post(app, "/charge-template/", "RPM_CHARGE_TEMPLATE", ["charge_template_id", "CHARGE_TEMPLATE"]);
+
+register_route_get(app,
+    "/charge-template-charges/:client_id/:charge_template_id",
+    (params) => `SELECT client_id, charge_template_id, charge_template_charge_id, description, amount 
+        FROM RPM_CHARGE_TEMPLATE_CHARGES WHERE client_id = ${params.client_id} and charge_template_id = ${params.charge_template_id}`
+    );
+
+register_route_put_del(app, "/charge-template-charge/:charge_template_id/:charge_template_charge_id", "RPM_CHARGE_TEMPLATE_CHARGES", 
+    (params) => `charge_template_id = ${params.charge_template_id} and charge_template_charge_id = ${params.charge_template_charge_id}`);
+
+register_route_post(app, "/charge-template-charge/", "RPM_CHARGE_TEMPLATE_CHARGES", ["charge_template_charge_id", "CHARGE_TEMPLATE_CHARGE"]);
 
 register_route_get(app,
                 "/locations/:client_id",
