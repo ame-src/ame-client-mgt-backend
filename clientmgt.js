@@ -163,7 +163,7 @@ app.post("/rollback-trans/", async (req, res) => {
     }
 });
 
-function register_route_put_del(app, path, table, where_builder){
+function register_route_put(app, path, table, where_builder){
 
     app.put(path, async (req, res) =>{
 
@@ -190,8 +190,10 @@ function register_route_put_del(app, path, table, where_builder){
                 await res.status(500).json({message: err.message});    
             }       
         }
-    });      
+    });    
+}
 
+function register_route_del(app, path, table, where_builder){
     app.delete(path, async (req, res) =>{
 
         try {
@@ -216,6 +218,12 @@ function register_route_put_del(app, path, table, where_builder){
             }       
         }
     });      
+}
+
+function register_route_put_del(app, path, table, where_builder){
+
+    register_route_put(app, path, table, where_builder);
+    register_route_del(app, path, table, where_builder);
 }
 
 function register_route_post(app, path, table, seq_num){
@@ -308,6 +316,88 @@ register_route_get(app,
     "/sales-tax/",
     params =>
     `SELECT state, item_type, sales_tax_rate from RPM_SALES_TAX`);
+
+register_route_get(app,
+    "/client/:client_id/:deleted?",
+    (params) =>
+    `select client_type, status_id, industry_id, bus_category_id, ascap_rate_plan, www_site, days_credit, 
+        contract_start_date, contract_length, has_multiple_contracts, default_bill_to_policy, 
+        default_ship_to_policy, billing_distribution, billing_order_by, address_id, default_bill_to_address_id,
+        default_ship_to_address_id, notes, notes_archive, default_update_method, default_disc_threshold,
+        current_vendor, lead_source, contract_verified_by, contract_verified_date, 
+        default_months_per_bill_period, default_system_grace_period, default_monthly_service_fee
+    from ${params.deleted == "deleted" ? "RPM_CLIENT_DELETED": "RPM_CLIENT"} where client_id = ${params.client_id}`);
+
+register_route_post(app, "/client/", "RPM_CLIENT", "CLIENT");
+
+register_route_put(app, "/client/:client_id", "RPM_CLIENT",
+    (params) => `client_id = ${params.client_id}`);
+
+app.post("/client-undelete/:client_id", async (req, res) => {
+    try {
+        let client_id_auth = req.headers["client-id"]; 
+        if(client_id_auth == undefined) throw new HttpError(400, `client-id not defined`);      
+        const pool = await get(client_id_auth, config);
+
+        let client_id = req.params["client_id"]; 
+ 
+        let request = new mssql.Request(get_transaction(client_id_auth));
+        let sql_in = "select [Name] from syscolumns where id = object_id(N'dbo.RPM_CLIENT_DELETED') and [name] != 'rowguid'"
+        let rows = await request.query(sql_in);
+        let columns = rows.recordset.map(obj => obj["Name"]).join(", ");
+
+        let sql_out1 = `INSERT rpm_client (${columns}) SELECT ${columns} FROM rpm_client_deleted WHERE client_id = ${client_id}`
+        log("info", "EXECSQL:", sql_out1);
+        await request.query(sql_out1);
+
+        let sql_out2 = `DELETE FROM rpm_client_deleted WHERE client_id = ${client_id}`
+        log("info", "EXECSQL:", sql_out2);
+        await request.query(sql_out2);
+
+        await res.send({message:"SUCCESS"});
+    }
+    catch(err){
+        log("error", err.message);
+        if(err instanceof HttpError){
+            await res.status(err.code).json({message: err.message});
+        }
+        else {
+            await res.status(500).json({message: err.message});    
+        }       
+}}); 
+
+app.delete("/client/:client_id", async (req, res) => {
+    try {
+        let client_id_auth = req.headers["client-id"]; 
+        if(client_id_auth == undefined) throw new HttpError(400, `client-id not defined`);      
+        const pool = await get(client_id_auth, config);
+
+        let client_id = req.params["client_id"]; 
+ 
+        let request = new mssql.Request(get_transaction(client_id_auth));
+        let sql_in = "select [Name] from syscolumns where id = object_id(N'dbo.RPM_CLIENT') and [name] != 'rowguid'"
+        let rows = await request.query(sql_in);
+        let columns = rows.recordset.map(obj => obj["Name"]).join(", ");
+
+        let sql_out1 = `INSERT rpm_client_deleted (${columns}) SELECT ${columns} FROM rpm_client WHERE client_id = ${client_id}`
+        log("info", "EXECSQL:", sql_out1);
+        await request.query(sql_out1);
+
+        let sql_out2 = `DELETE FROM rpm_client WHERE client_id = ${client_id}`
+        log("info", "EXECSQL:", sql_out2);
+        await request.query(sql_out2);
+
+        await res.send({message:"SUCCESS"});
+    }
+    catch(err){
+        log("error", err.message);
+        if(err instanceof HttpError){
+            await res.status(err.code).json({message: err.message});
+        }
+        else {
+            await res.status(500).json({message: err.message});    
+        }       
+}}); 
 
 register_route_get(app,
 "/address/:address_id",
