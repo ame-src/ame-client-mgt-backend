@@ -46,19 +46,18 @@ function format_sql(v){
     }
 }
 
-async function get_seq_num(client_id, type) {
+async function get_seq_num(request, type) {
 
     var application = "AMECLIENTMGT";
     var sql = `SELECT s.seq_num FROM rpm_sequencing s WHERE s.type = '${type}' and s.application = '${application}'`;
     
-    const pool = await get(client_id, config);  
-    // query to the database and get the records
-    let rows = await pool.request().query(sql); 
+      // query to the database and get the records
+    let rows = await request.query(sql); 
 
     if(rows.recordset.length <= 0) throw new Error(`no seq num for: ${application}`);
 
     sql = `UPDATE s set s.seq_num = s.seq_num + 1 FROM rpm_sequencing s WHERE s.type = '${type}' and s.application = '${application}'`;
-    await pool.request().query(sql); 
+    await request.query(sql); 
 
     return rows.recordset[0]["seq_num"];
 }
@@ -107,16 +106,16 @@ var transactions = {}
 app.post("/begin-trans/", async (req, res) => {
 
     try {
-        let client_id = req.headers["client-id"]; 
-        if(client_id == undefined) throw new HttpError(400, `client-id not defined`);     
+        let transaction_id = req.headers["transaction-id"]; 
+        if(transaction_id == undefined) throw new HttpError(400, `transaction-id not defined`);     
 
-        const pool = await get(client_id, config);
+        const pool = await get(transaction_id, config);
 
         const transaction = new mssql.Transaction(pool);
-        if(!(client_id in transactions)){
-            transactions[client_id] = [];
+        if(!(transaction_id in transactions)){
+            transactions[transaction_id] = [];
         } 
-        transactions[client_id].push(transaction);
+        transactions[transaction_id].push(transaction);
         await transaction.begin();
         res.send({message:"TRANS BEGIN"});
     }
@@ -125,10 +124,10 @@ app.post("/begin-trans/", async (req, res) => {
     }
 });
 
-function get_transaction(client_id, pop = false)
+function get_transaction(transaction_id, pop = false)
 {
-    if(!(client_id in transactions)) throw new HttpError(400, `this client never engaged in a transaction`);
-    let client_trans = transactions[client_id];
+    if(!(transaction_id in transactions)) throw new HttpError(400, `this client never engaged in a transaction`);
+    let client_trans = transactions[transaction_id];
     if(client_trans.length <= 0) throw new HttpError(400, `no known transactions for this client`);
 
     return pop ? client_trans.pop() :client_trans[client_trans.length - 1];
@@ -137,10 +136,10 @@ function get_transaction(client_id, pop = false)
 app.post("/commit-trans/", async (req, res) => {
 
     try {
-        let client_id = req.headers["client-id"]; 
-        if(client_id == undefined) throw new HttpError(400, `client-id not defined`);     
+        let transaction_id = req.headers["transaction-id"]; 
+        if(transaction_id == undefined) throw new HttpError(400, `transaction-id not defined`);     
  
-        const transaction = get_transaction(client_id, true);
+        const transaction = get_transaction(transaction_id, true);
         await transaction.commit();
         res.send({message:"TRANS COMMIT"});
     }
@@ -151,10 +150,10 @@ app.post("/commit-trans/", async (req, res) => {
 
 app.post("/rollback-trans/", async (req, res) => {
     try {
-        let client_id = req.headers["client-id"]; 
-        if(client_id == undefined) throw new HttpError(400, `client-id not defined`);     
+        let transaction_id = req.headers["transaction-id"]; 
+        if(transaction_id == undefined) throw new HttpError(400, `transaction-id not defined`);     
  
-        const transaction = get_transaction(client_id, true);
+        const transaction = get_transaction(transaction_id, true);
         await transaction.rollback();
         res.send({message:"TRANS ROLLBACK"});
     }
@@ -168,13 +167,13 @@ function register_route_put(app, path, table, where_builder){
     app.put(path, async (req, res) =>{
 
         try {
-            let client_id = req.headers["client-id"]; 
-            if(client_id == undefined) throw new HttpError(400, `client-id not defined`);      
+            let transaction_id = req.headers["transaction-id"]; 
+            if(transaction_id == undefined) throw new HttpError(400, `transaction-id not defined`);      
             let obj = req.body;
             if(Object.keys(obj).length > 0) {
                 let where_clause = where_builder(req.params);
 
-                let request = new mssql.Request(get_transaction(client_id));                
+                let request = new mssql.Request(get_transaction(transaction_id));                
                 let sql = `update ${table} set ${Object.keys(obj).map((key) => `${key} = ${format_sql(obj[key])}`).join(", ")} where ${where_clause}`; 
                 log("info", "EXECSQL:", sql);
                 await request.query(sql);
@@ -197,12 +196,12 @@ function register_route_del(app, path, table, where_builder){
     app.delete(path, async (req, res) =>{
 
         try {
-            let client_id = req.headers["client-id"]; 
-            if(client_id == undefined) throw new HttpError(400, `client-id not defined`);      
+            let transaction_id = req.headers["transaction-id"]; 
+            if(transaction_id == undefined) throw new HttpError(400, `transaction-id not defined`);      
             let obj = req.body;
 
             let where_clause = where_builder(req.params);
-            let request = new mssql.Request(get_transaction(client_id));
+            let request = new mssql.Request(get_transaction(transaction_id));
             let sql = `delete ${table} where ${where_clause}`; 
             log("info", "EXECSQL:", sql);
             await request.query(sql);
@@ -233,19 +232,20 @@ function register_route_post(app, path, table, seq_num){
         try {
             var ret;
  
-            let client_id = req.headers["client-id"]; 
-            if(client_id == undefined) throw new HttpError(400, `client-id not defined`);      
+            let transaction_id = req.headers["transaction-id"]; 
+            if(transaction_id == undefined) throw new HttpError(400, `transaction-id not defined`);      
             let body = req.body;
+            let request = new mssql.Request(get_transaction(transaction_id));
+
             if(seq_num.length > 1){
-                ret = await get_seq_num(client_id, seq_num[1]);
+                ret = await get_seq_num(request, seq_num[1]);
                 body[seq_num[0]] = ret;
             }
             else {
                 ret = null;
             }
 
-            let request = new mssql.Request(get_transaction(client_id));
-            let sql = `insert ${table} (${Object.keys(body).join(", ")}) values (${Object.keys(body).map((key) => `${format_sql(body[key])}`).join(", ")})`; 
+             let sql = `insert ${table} (${Object.keys(body).join(", ")}) values (${Object.keys(body).map((key) => `${format_sql(body[key])}`).join(", ")})`; 
             log("info", "EXECSQL:", sql);
             await request.query(sql);
             await res.send({message:"SUCCESS", seq_num:ret});
@@ -328,20 +328,42 @@ register_route_get(app,
         default_months_per_bill_period, default_system_grace_period, default_monthly_service_fee
     from ${params.deleted == "deleted" ? "RPM_CLIENT_DELETED": "RPM_CLIENT"} where client_id = ${params.client_id}`);
 
-register_route_post(app, "/client/", "RPM_CLIENT", "CLIENT");
+app.post("/clients/next-client-id", async (req, res) =>{
+
+    try { 
+        let transaction_id = req.headers["transaction-id"]; 
+        if(transaction_id == undefined) throw new HttpError(400, `transaction-id not defined`);      
+        let request = new mssql.Request(get_transaction(transaction_id));
+
+        let ret = await get_seq_num(request, "CLIENT");
+
+        await res.send({message:"SUCCESS", seq_num:ret});
+    }
+    catch(err){
+        log("error", err.message);
+        if(err instanceof HttpError){
+            await res.status(err.code).json({message: err.message});
+        }
+        else {
+            await res.status(500).json({message: err.message});    
+        }       
+    }
+});
+
+register_route_post(app, "/client/", "RPM_CLIENT", []);
 
 register_route_put(app, "/client/:client_id", "RPM_CLIENT",
     (params) => `client_id = ${params.client_id}`);
 
-app.post("/client-undelete/:client_id", async (req, res) => {
+app.post("/client/undelete/:client_id", async (req, res) => {
     try {
-        let client_id_auth = req.headers["client-id"]; 
-        if(client_id_auth == undefined) throw new HttpError(400, `client-id not defined`);      
-        const pool = await get(client_id_auth, config);
+        let transaction_id = req.headers["transaction-id"]; 
+        if(transaction_id == undefined) throw new HttpError(400, `transaction-id not defined`);      
+        const pool = await get(transaction_id, config);
 
         let client_id = req.params["client_id"]; 
  
-        let request = new mssql.Request(get_transaction(client_id_auth));
+        let request = new mssql.Request(get_transaction(transaction_id));
         let sql_in = "select [Name] from syscolumns where id = object_id(N'dbo.RPM_CLIENT_DELETED') and [name] != 'rowguid'"
         let rows = await request.query(sql_in);
         let columns = rows.recordset.map(obj => obj["Name"]).join(", ");
@@ -368,13 +390,13 @@ app.post("/client-undelete/:client_id", async (req, res) => {
 
 app.delete("/client/:client_id", async (req, res) => {
     try {
-        let client_id_auth = req.headers["client-id"]; 
-        if(client_id_auth == undefined) throw new HttpError(400, `client-id not defined`);      
-        const pool = await get(client_id_auth, config);
+        let transaction_id = req.headers["transaction-id"]; 
+        if(transaction_id == undefined) throw new HttpError(400, `transaction-id not defined`);      
+        const pool = await get(transaction_id, config);
 
         let client_id = req.params["client_id"]; 
  
-        let request = new mssql.Request(get_transaction(client_id_auth));
+        let request = new mssql.Request(get_transaction(transaction_id));
         let sql_in = "select [Name] from syscolumns where id = object_id(N'dbo.RPM_CLIENT') and [name] != 'rowguid'"
         let rows = await request.query(sql_in);
         let columns = rows.recordset.map(obj => obj["Name"]).join(", ");
@@ -528,10 +550,10 @@ register_route_put_del(app, "/profile/:profile_id", "RPM_CLIENT_PROFILE",
 app.post("/profile-duplicate-data/", async (req, res) =>{
 
     try {
-        let client_id = req.headers["client-id"]; 
-        if(client_id == undefined) throw new HttpError(400, `client-id not defined`);      
+        let transaction_id = req.headers["transaction-id"]; 
+        if(transaction_id == undefined) throw new HttpError(400, `transaction-id not defined`);      
         let body = req.body;
-        const pool = await get(client_id, config);
+        const pool = await get(transaction_id, config);
  
         let dest_profile_id = body["dest_profile_id"]; 
         let sql = `exec sp_duplicateprofile_data ${body["src_profile_id"]}, ${body["client_id"]}, ${dest_profile_id}`;
@@ -560,9 +582,9 @@ app.post("/profile-duplicate-data/", async (req, res) =>{
 app.delete("/profile-delete-data/:profile_id", async (req, res) =>{
 
     try {
-        let client_id = req.headers["client-id"]; 
-        if(client_id == undefined) throw new HttpError(400, `client-id not defined`);      
-         const pool = await get(client_id, config);
+        let transaction_id = req.headers["transaction-id"]; 
+        if(transaction_id == undefined) throw new HttpError(400, `transaction-id not defined`);      
+         const pool = await get(transaction_id, config);
  
         let profile_id = req.params["profile_id"]; 
         let sql = `exec sp_deleteprofile ${profile_id}`;
