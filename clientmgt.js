@@ -716,6 +716,19 @@ register_route_post(app, "/template/", "RPM_SYSTEM_PROFILE_TEMPLATE", ["template
 register_route_put_del(app, "/template/:template_id", "RPM_SYSTEM_PROFILE_TEMPLATE", 
         (params) => `template_id = ${params.template_id}`); 
 
+register_route_get(app, "/systems/:client_id",
+    (params) => `select cs.system_id, cs.location_id, profile_id, system_status, cs.computer_name, date_built, date_shipped,
+    date_installed, system_type, comm_method, use_dhcp_for_ip, ip_address, ip_subnet_mask,
+   ip_gateway, use_dhcp_for_dns, ip_dns_servers, proxy_server, proxy_port, proxy_user, proxy_password,
+    comm_freq_value, comm_freq_units, comm_window_start, comm_window_stop, comm_retry_value, 
+   comm_retry_units, comm_retry_limit, obey_comm_window, last_comm_update, comm_update_created,
+   comm_delivery_method, cs.expiration_date, force_deactivation, e.expiration_date calc_exp_date, system_expires,
+   ip_address_server, replacing_system_id, wifi_ap_passphrase, wpa_supplicant, date_last_comm
+   FROM rpm_client_system cs 
+   LEFT OUTER JOIN qry_system_calc_exp_dates e ON cs.system_id = e.system_id
+   WHERE cs.client_id = ${params.client_id}`
+);
+
 const server = app.listen(5000, function () {
     const host = server.address().address;
     const port = server.address().port;
