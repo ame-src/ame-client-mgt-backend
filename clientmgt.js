@@ -736,6 +736,11 @@ register_route_get(app, "/system/:system_id",
    WHERE cs.system_id = ${params.system_id}`
 );
 
+register_route_post(app, "/system/", "RPM_CLIENT_SYSTEM", ["system_id", "SYSTEM"]);
+
+register_route_put_del(app, "/system/:system_id", "RPM_CLIENT_SYSTEM", 
+        (params) => `system_id = ${params.system_id}`); 
+
 const server = app.listen(5000, function () {
     const host = server.address().address;
     const port = server.address().port;
