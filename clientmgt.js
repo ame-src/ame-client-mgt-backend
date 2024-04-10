@@ -717,6 +717,13 @@ register_route_put_del(app, "/template/:template_id", "RPM_SYSTEM_PROFILE_TEMPLA
         (params) => `template_id = ${params.template_id}`); 
 
 register_route_get(app, "/systems/:client_id",
+    (params) => `select cs.system_id, cs.computer_name, cs.location_id, profile_id
+       FROM rpm_client_system cs 
+       LEFT OUTER JOIN qry_system_calc_exp_dates e ON cs.system_id = e.system_id
+       WHERE cs.client_id = ${params.client_id}`
+    );
+    
+register_route_get(app, "/system/:system_id",
     (params) => `select cs.system_id, cs.location_id, profile_id, system_status, cs.computer_name, date_built, date_shipped,
     date_installed, system_type, comm_method, use_dhcp_for_ip, ip_address, ip_subnet_mask,
    ip_gateway, use_dhcp_for_dns, ip_dns_servers, proxy_server, proxy_port, proxy_user, proxy_password,
@@ -726,7 +733,7 @@ register_route_get(app, "/systems/:client_id",
    ip_address_server, replacing_system_id, wifi_ap_passphrase, wpa_supplicant, date_last_comm
    FROM rpm_client_system cs 
    LEFT OUTER JOIN qry_system_calc_exp_dates e ON cs.system_id = e.system_id
-   WHERE cs.client_id = ${params.client_id}`
+   WHERE cs.system_id = ${params.system_id}`
 );
 
 const server = app.listen(5000, function () {
