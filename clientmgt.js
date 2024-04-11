@@ -746,6 +746,11 @@ register_route_get(app, "/wifis/:system_id",
         use_dhcp_for_dns, ip_dns_servers
         from RPM_CLIENT_WIFI where system_id = ${params.system_id}`)
 
+register_route_post(app, "/wifi/", "RPM_CLIENT_WIFI", []);
+
+register_route_put_del(app, "/wifi/:system_id/:ssid", "RPM_CLIENT_WIFI", 
+        (params) => `system_id = ${params.system_id} and ssid = '${params.ssid}'`); 
+
 const server = app.listen(5000, function () {
     const host = server.address().address;
     const port = server.address().port;
