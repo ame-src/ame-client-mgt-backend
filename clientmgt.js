@@ -760,7 +760,8 @@ register_route_get(app, "/credits/:client_id",
 
 register_route_post(app, "/credit/", "RPM_CLIENT_CREDIT", ["credit_id", "CREDIT"]);
 
-register_route_put_del(app, "/credit/:credit_id", "RPM_CLIENT_CREDIT");
+register_route_put_del(app, "/credit/:credit_id", "RPM_CLIENT_CREDIT", 
+    (params) => `credit_id = ${params.credit_id}`);
 
 const server = app.listen(5000, function () {
     const host = server.address().address;
