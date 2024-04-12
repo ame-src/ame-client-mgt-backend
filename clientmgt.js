@@ -763,6 +763,10 @@ register_route_post(app, "/credit/", "RPM_CLIENT_CREDIT", ["credit_id", "CREDIT"
 register_route_put_del(app, "/credit/:credit_id", "RPM_CLIENT_CREDIT", 
     (params) => `credit_id = ${params.credit_id}`);
 
+register_route_get(app, "/allocations/:credit_id", 
+    (params) => `select client_id, invoice_id, allocation_seq_num, statement_id, amount, created_by, created_date, 
+        last_modified_by, last_modified_date from RPM_CLIENT_CREDIT_ALLOCATION where credit_id = ${params.credit_id}`);
+
 const server = app.listen(5000, function () {
     const host = server.address().address;
     const port = server.address().port;
