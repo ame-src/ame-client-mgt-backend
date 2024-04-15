@@ -781,6 +781,35 @@ register_route_get(app, "/invoice/allocations/:invoice_id",
     (params) => `select client_id, credit_id, invoice_id, allocation_seq_num, statement_id, amount, created_by, created_date, 
         last_modified_by, last_modified_date from RPM_CLIENT_CREDIT_ALLOCATION where invoice_id = ${params.invoice_id}`);
 
+app.get("/calc-service-charges", async (req, res) =>{
+
+    try {
+
+        const pool = await get("read-pool", config);  
+
+        let template_id = req.query["template-id"];
+        let branch = req.query["branch"];
+        let fee = req.query["fee"];
+
+        let sql = `sp_calc_service_charges ${template_id != undefined ? template_id : "null"}, 
+        ${fee != undefined ? fee : ""}, ${branch != undefined ? branch : "null"}`
+
+        // query to the database and get the records
+        let rows = await pool.request().query(sql); 
+        // send records as a response
+        await res.send(rows.recordset); 
+    }
+    catch(err){
+        log("error", err.message);
+        if(err instanceof HttpError){
+            await res.status(err.code).json({message: err.message});
+        }
+        else {
+            await res.status(500).json({message: err.message});    
+        }       
+    }
+});  
+
 const server = app.listen(5000, function () {
     const host = server.address().address;
     const port = server.address().port;
