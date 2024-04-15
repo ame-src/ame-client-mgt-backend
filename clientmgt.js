@@ -751,6 +751,11 @@ register_route_post(app, "/wifi/", "RPM_CLIENT_WIFI", []);
 register_route_put_del(app, "/wifi/:system_id/:ssid", "RPM_CLIENT_WIFI", 
         (params) => `system_id = ${params.system_id} and ssid = '${params.ssid}'`); 
 
+register_route_get(app, "/charges/:invoice_id",
+    (params) => `select charge_id, charge_date, item_type, service_from_date, service_to_date, description, amount, sales_tax_rate, location_id2,
+	        created_by, created_date, last_modified_by, last_modified_date
+        from RPM_CLIENT_CHARGE where invoice_id = ${params.invoice_id}`);
+
 register_route_get(app, "/credits/:client_id", 
     (params) => `select credit_id, credit_type, credit_date, cc_processor, credit_amount, total_dispersements, unallocated_balance,
         require_manual_allocation, is_void_credit, description, payment_method, payment_amount, discount_amount,
