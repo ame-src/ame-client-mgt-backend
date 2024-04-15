@@ -764,13 +764,17 @@ register_route_put_del(app, "/credit/:credit_id", "RPM_CLIENT_CREDIT",
     (params) => `credit_id = ${params.credit_id}`);
 
 register_route_get(app, "/allocations/:credit_id", 
-    (params) => `select client_id, invoice_id, allocation_seq_num, statement_id, amount, created_by, created_date, 
+    (params) => `select client_id, credit_id, invoice_id, allocation_seq_num, statement_id, amount, created_by, created_date, 
         last_modified_by, last_modified_date from RPM_CLIENT_CREDIT_ALLOCATION where credit_id = ${params.credit_id}`);
 
 register_route_post(app, "/allocation/", "RPM_CLIENT_CREDIT_ALLOCATION", ["allocation_seq_num", "ALLOCATION"]);
 
 register_route_put_del(app, "/allocation/:allocation_seq_num", "RPM_CLIENT_ALLOCATION_SEQ_NUM", 
     (params) => `allocation_seq_num = ${params.allocation_seq_num}`);
+
+register_route_get(app, "/invoice/allocations/:invoice_id", 
+    (params) => `select client_id, credit_id, invoice_id, allocation_seq_num, statement_id, amount, created_by, created_date, 
+        last_modified_by, last_modified_date from RPM_CLIENT_CREDIT_ALLOCATION where invoice_id = ${params.invoice_id}`);
 
 const server = app.listen(5000, function () {
     const host = server.address().address;
