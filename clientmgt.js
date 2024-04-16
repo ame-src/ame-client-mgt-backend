@@ -810,6 +810,11 @@ app.get("/calc-service-charges", async (req, res) =>{
     }
 });  
 
+register_route_post(app, "/charge/", "RPM_CLIENT_CHARGE", ["charge_id", "CHARGE"]);
+
+register_route_put_del(app, "/charge/:charge_id", "RPM_CLIENT_CHARGE", 
+    (params) => `charge_id = ${params.charge_id}`);
+
 const server = app.listen(5000, function () {
     const host = server.address().address;
     const port = server.address().port;
