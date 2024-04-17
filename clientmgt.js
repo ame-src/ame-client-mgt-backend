@@ -751,35 +751,17 @@ register_route_post(app, "/wifi/", "RPM_CLIENT_WIFI", []);
 register_route_put_del(app, "/wifi/:system_id/:ssid", "RPM_CLIENT_WIFI", 
         (params) => `system_id = ${params.system_id} and ssid = '${params.ssid}'`); 
 
+register_route_get(app, "/invoices/:client_id",
+    (params) => `select invoice_id, location_id, bill_to_address_id, invoice_date, credit_terms,
+	    payment_due_date, purchase_order, statement_id, is_void, invoice_amount, amount_paid, 
+        balance_due, created_by, created_date, last_modified_by, last_modified_date
+    from RPM_CLIENT_INVOICE where client_id = ${params.client_id} `
+)
+
 register_route_get(app, "/charges/:invoice_id",
     (params) => `select charge_id, charge_date, item_type, service_from_date, service_to_date, description, amount, sales_tax_rate, location_id2,
 	        created_by, created_date, last_modified_by, last_modified_date
         from RPM_CLIENT_CHARGE where invoice_id = ${params.invoice_id}`);
-
-register_route_get(app, "/credits/:client_id", 
-    (params) => `select credit_id, credit_type, credit_date, cc_processor, credit_amount, total_dispersements, unallocated_balance,
-        require_manual_allocation, is_void_credit, description, payment_method, payment_amount, discount_amount,
-        is_returned_check, cc_num, card_auth_code, card_declined_count, card_status_code, card_avs_result,
-        created_by, created_date, last_modified_by, last_modified_date
-        from RPM_CLIENT_CREDIT where client_id = ${params.client_id}`);
-
-register_route_post(app, "/credit/", "RPM_CLIENT_CREDIT", ["credit_id", "CREDIT"]);
-
-register_route_put_del(app, "/credit/:credit_id", "RPM_CLIENT_CREDIT", 
-    (params) => `credit_id = ${params.credit_id}`);
-
-register_route_get(app, "/allocations/:credit_id", 
-    (params) => `select client_id, credit_id, invoice_id, allocation_seq_num, statement_id, amount, created_by, created_date, 
-        last_modified_by, last_modified_date from RPM_CLIENT_CREDIT_ALLOCATION where credit_id = ${params.credit_id}`);
-
-register_route_post(app, "/allocation/", "RPM_CLIENT_CREDIT_ALLOCATION", ["allocation_seq_num", "ALLOCATION"]);
-
-register_route_put_del(app, "/allocation/:allocation_seq_num", "RPM_CLIENT_ALLOCATION_SEQ_NUM", 
-    (params) => `allocation_seq_num = ${params.allocation_seq_num}`);
-
-register_route_get(app, "/invoice/allocations/:invoice_id", 
-    (params) => `select client_id, credit_id, invoice_id, allocation_seq_num, statement_id, amount, created_by, created_date, 
-        last_modified_by, last_modified_date from RPM_CLIENT_CREDIT_ALLOCATION where invoice_id = ${params.invoice_id}`);
 
 app.get("/calc-service-charges", async (req, res) =>{
 
@@ -814,6 +796,31 @@ register_route_post(app, "/charge/", "RPM_CLIENT_CHARGE", ["charge_id", "CHARGE"
 
 register_route_put_del(app, "/charge/:charge_id", "RPM_CLIENT_CHARGE", 
     (params) => `charge_id = ${params.charge_id}`);
+
+register_route_get(app, "/credits/:client_id", 
+    (params) => `select credit_id, credit_type, credit_date, cc_processor, credit_amount, total_dispersements, unallocated_balance,
+        require_manual_allocation, is_void_credit, description, payment_method, payment_amount, discount_amount,
+        is_returned_check, cc_num, card_auth_code, card_declined_count, card_status_code, card_avs_result,
+        created_by, created_date, last_modified_by, last_modified_date
+        from RPM_CLIENT_CREDIT where client_id = ${params.client_id}`);
+
+register_route_post(app, "/credit/", "RPM_CLIENT_CREDIT", ["credit_id", "CREDIT"]);
+
+register_route_put_del(app, "/credit/:credit_id", "RPM_CLIENT_CREDIT", 
+    (params) => `credit_id = ${params.credit_id}`);
+
+register_route_get(app, "/allocations/:credit_id", 
+    (params) => `select client_id, credit_id, invoice_id, allocation_seq_num, statement_id, amount, created_by, created_date, 
+        last_modified_by, last_modified_date from RPM_CLIENT_CREDIT_ALLOCATION where credit_id = ${params.credit_id}`);
+
+register_route_post(app, "/allocation/", "RPM_CLIENT_CREDIT_ALLOCATION", ["allocation_seq_num", "ALLOCATION"]);
+
+register_route_put_del(app, "/allocation/:allocation_seq_num", "RPM_CLIENT_ALLOCATION_SEQ_NUM", 
+    (params) => `allocation_seq_num = ${params.allocation_seq_num}`);
+
+register_route_get(app, "/invoice/allocations/:invoice_id", 
+    (params) => `select client_id, credit_id, invoice_id, allocation_seq_num, statement_id, amount, created_by, created_date, 
+        last_modified_by, last_modified_date from RPM_CLIENT_CREDIT_ALLOCATION where invoice_id = ${params.invoice_id}`);
 
 const server = app.listen(5000, function () {
     const host = server.address().address;
