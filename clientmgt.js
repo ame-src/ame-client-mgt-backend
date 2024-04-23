@@ -751,11 +751,31 @@ register_route_post(app, "/wifi/", "RPM_CLIENT_WIFI", []);
 register_route_put_del(app, "/wifi/:system_id/:ssid", "RPM_CLIENT_WIFI", 
         (params) => `system_id = ${params.system_id} and ssid = '${params.ssid}'`); 
 
-register_route_get(app, "/invoices/:client_id",
-    (params) => `select invoice_id, location_id, invoice_date, credit_terms,
-	    payment_due_date, purchase_order, invoice_amount, amount_paid, 
-        balance_due
-    from RPM_CLIENT_INVOICE where client_id = ${params.client_id} `
+register_route_get(app, "/invoices/:filter/:client_id",
+    function(params){
+
+        var cols = `invoice_id, location_id, invoice_date, credit_terms,
+            payment_due_date, purchase_order, invoice_amount, amount_paid, 
+            balance_due`;
+
+        var wc;
+        if(params.filter == "all"){ 
+            wc = [];
+        }
+        else if(params.filter == "open"){
+            wc = ["balance_due > 0"];
+        }
+        else if(params.filter == "90_days"){
+            wc = ["payment_due_date >= dateadd(d, -90, getdate())"] 
+        }
+        else {
+            wc = [];
+        }
+
+        wc.push(`client_id = ${params.client_id}`);
+
+        return `select ${cols} from RPM_CLIENT_INVOICE where ${wc.join(" and ")} order by invoice_id`;
+    }
 )
 
 register_route_get(app, "/invoice-details/:invoice_id",
