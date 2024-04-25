@@ -751,30 +751,30 @@ register_route_post(app, "/wifi/", "RPM_CLIENT_WIFI", []);
 register_route_put_del(app, "/wifi/:system_id/:ssid", "RPM_CLIENT_WIFI", 
         (params) => `system_id = ${params.system_id} and ssid = '${params.ssid}'`); 
 
-register_route_get(app, "/invoices/:filter/:client_id",
+register_route_get(app, "/invoices/:client_id/:filter/",
     function(params){
 
-        var cols = `invoice_id, location_id, invoice_date, credit_terms,
-            payment_due_date, purchase_order, invoice_amount, amount_paid, 
-            balance_due`;
+        var cols = `i.invoice_id, i.location_id, i.invoice_date, i.credit_terms,
+            i.payment_due_date, i.purchase_order, i.invoice_amount, i.amount_paid, 
+            i.balance_due`;
 
         var wc;
         if(params.filter == "all"){ 
             wc = [];
         }
         else if(params.filter == "open"){
-            wc = ["balance_due > 0"];
+            wc = ["i.balance_due > 0"];
         }
         else if(params.filter == "90_days"){
-            wc = ["payment_due_date >= dateadd(d, -90, getdate())"] 
+            wc = ["i.payment_due_date >= dateadd(d, -90, getdate())"] 
         }
-        else {
-            wc = [];
+        else if(!isNaN(params.filter)){
+            wc = [`exists (select * from rpm_client_charge ch where ch.invoice_id = i.invoice_id and ch.location_id2 = ${params.filter})`];
         }
 
-        wc.push(`client_id = ${params.client_id}`);
+        wc.push(`i.client_id = ${params.client_id}`);
 
-        return `select ${cols} from RPM_CLIENT_INVOICE where ${wc.join(" and ")} order by invoice_id`;
+        return `select ${cols} from RPM_CLIENT_INVOICE i where ${wc.join(" and ")} order by i.invoice_id`;
     }
 )
 
@@ -784,6 +784,11 @@ register_route_get(app, "/invoice-details/:invoice_id",
         balance_due, created_by, created_date, last_modified_by, last_modified_date
     from RPM_CLIENT_INVOICE where invoice_id = ${params.invoice_id} `
 )
+
+register_route_post(app, "/invoice/", "RPM_CLIENT_INVOICE", ["invoice_id", "INVOICE"]);
+
+register_route_put_del(app, "/invoice/:invoice_id", "RPM_CLIENT_INVOICE", 
+    (params) => `invoice_id = ${params.invoice_id}`);
 
 register_route_get(app, "/charges/:invoice_id",
     (params) => `select charge_id, charge_date, item_type, service_from_date, service_to_date, description, amount, sales_tax_rate, location_id2,
